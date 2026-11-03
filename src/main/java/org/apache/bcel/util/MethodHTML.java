@@ -34,14 +34,14 @@ import org.apache.bcel.classfile.Utility;
  */
 final class MethodHTML {
 
-    private final String className; // name of current class
+    private final String classRef; // name of current class, escaped for use in HREF attributes
     private final PrintWriter printWriter; // file to write to
     private final ConstantHTML constantHtml;
     private final AttributeHTML attributeHtml;
 
     MethodHTML(final String dir, final String className, final Method[] methods, final Field[] fields, final ConstantHTML constantHtml,
         final AttributeHTML attributeHtml, final Charset charset) throws FileNotFoundException, UnsupportedEncodingException {
-        this.className = className;
+        this.classRef = Class2HTML.toHTMLRef(className);
         this.attributeHtml = attributeHtml;
         this.constantHtml = constantHtml;
         try (PrintWriter newPrintWriter = new PrintWriter(dir + className + "_methods.html", charset.name())) {
@@ -72,11 +72,12 @@ final class MethodHTML {
     private void writeField(final Field field) {
         final String type = Utility.signatureToString(field.getSignature());
         final String name = field.getName();
+        final String htmlName = Class2HTML.toHTML(name);
         String access = Utility.accessToString(field.getAccessFlags());
         Attribute[] attributes;
         access = Utility.replace(access, " ", "&nbsp;");
         printWriter.print("<TR><TD><FONT COLOR=\"#FF0000\">" + access + "</FONT></TD>\n<TD>" + Class2HTML.referenceType(type) + "</TD><TD><A NAME=\"field"
-            + name + "\">" + name + "</A></TD>");
+            + htmlName + "\">" + htmlName + "</A></TD>");
         attributes = field.getAttributes();
         // Write them to the Attributes.html file with anchor "<name>[<i>]"
         for (int i = 0; i < attributes.length; i++) {
@@ -86,7 +87,8 @@ final class MethodHTML {
             if (attributes[i].getTag() == Const.ATTR_CONSTANT_VALUE) { // Default value
                 final String str = attributes[i].toString();
                 // Reference attribute in _attributes.html
-                printWriter.print("<TD>= <A HREF=\"" + className + "_attributes.html#" + name + "@" + i + "\" TARGET=\"Attributes\">" + str + "</TD>\n");
+                printWriter.print("<TD>= <A HREF=\"" + classRef + "_attributes.html#" + htmlName + "@" + i + "\" TARGET=\"Attributes\">"
+                    + Class2HTML.toHTML(str) + "</TD>\n");
                 break;
             }
         }
@@ -113,8 +115,8 @@ final class MethodHTML {
         access = Utility.replace(access, " ", "&nbsp;");
         htmlName = Class2HTML.toHTML(name);
         printWriter.print("<TR VALIGN=TOP><TD><FONT COLOR=\"#FF0000\"><A NAME=method" + methodNumber + ">" + access + "</A></FONT></TD>");
-        printWriter.print("<TD>" + Class2HTML.referenceType(type) + "</TD><TD>" + "<A HREF=" + className + "_code.html#method" + methodNumber + " TARGET=Code>"
-            + htmlName + "</A></TD>\n<TD>(");
+        printWriter.print("<TD>" + Class2HTML.referenceType(type) + "</TD><TD>" + "<A HREF=\"" + classRef + "_code.html#method" + methodNumber
+            + "\" TARGET=Code>" + htmlName + "</A></TD>\n<TD>(");
         for (int i = 0; i < args.length; i++) {
             printWriter.print(Class2HTML.referenceType(args[i]));
             if (i < args.length - 1) {

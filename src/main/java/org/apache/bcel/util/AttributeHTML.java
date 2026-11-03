@@ -42,7 +42,7 @@ import org.apache.bcel.classfile.Utility;
  */
 final class AttributeHTML implements Closeable {
 
-    private final String className; // name of current class
+    private final String classRef; // name of current class, escaped for use in HREF attributes
     private final PrintWriter printWriter; // file to write to
     private int attrCount;
     private final ConstantHTML constantHtml;
@@ -50,7 +50,7 @@ final class AttributeHTML implements Closeable {
 
     AttributeHTML(final String dir, final String className, final ConstantPool constantPool, final ConstantHTML constantHtml, final Charset charset)
         throws FileNotFoundException, UnsupportedEncodingException {
-        this.className = className;
+        this.classRef = Class2HTML.toHTMLRef(className);
         this.constantPool = constantPool;
         this.constantHtml = constantHtml;
         printWriter = new PrintWriter(dir + className + "_attributes.html", charset.name());
@@ -67,7 +67,7 @@ final class AttributeHTML implements Closeable {
     }
 
     private String codeLink(final int link, final int methodNumber) {
-        return "<A HREF=\"" + className + "_code.html#code" + methodNumber + "@" + link + "\" TARGET=Code>" + link + "</A>";
+        return "<A HREF=\"" + classRef + "_code.html#code" + methodNumber + "@" + link + "\" TARGET=Code>" + link + "</A>";
     }
 
     void writeAttribute(final Attribute attribute, final String anchor) {
@@ -86,7 +86,7 @@ final class AttributeHTML implements Closeable {
         } else {
             printWriter.print("<TR BGCOLOR=\"#A0A0A0\"><TD>");
         }
-        printWriter.println("<H4><A NAME=\"" + anchor + "\">" + attrCount + " " + Const.getAttributeName(tag) + "</A></H4>");
+        printWriter.println("<H4><A NAME=\"" + Class2HTML.toHTML(anchor) + "\">" + attrCount + " " + Const.getAttributeName(tag) + "</A></H4>");
         /*
          * Handle different attributes
          */
@@ -95,7 +95,7 @@ final class AttributeHTML implements Closeable {
             final Code c = (Code) attribute;
             // Some directly printable values
             printWriter.print("<UL><LI>Maximum stack size = " + c.getMaxStack() + "</LI>\n<LI>Number of local variables = " + c.getMaxLocals()
-                + "</LI>\n<LI><A HREF=\"" + className + "_code.html#method" + methodNumber + "\" TARGET=Code>Byte code</A></LI></UL>\n");
+                + "</LI>\n<LI><A HREF=\"" + classRef + "_code.html#method" + methodNumber + "\" TARGET=Code>Byte code</A></LI></UL>\n");
             // Get handled exceptions and list them
             final CodeException[] ce = c.getExceptionTable();
             final int len = ce.length;
@@ -119,13 +119,13 @@ final class AttributeHTML implements Closeable {
             index = ((ConstantValue) attribute).getConstantValueIndex();
             // Reference _cp.html
             printWriter
-                .print("<UL><LI><A HREF=\"" + className + "_cp.html#cp" + index + "\" TARGET=\"ConstantPool\">Constant value index(" + index + ")</A></UL>\n");
+                .print("<UL><LI><A HREF=\"" + classRef + "_cp.html#cp" + index + "\" TARGET=\"ConstantPool\">Constant value index(" + index + ")</A></UL>\n");
             break;
         case Const.ATTR_SOURCE_FILE:
             index = ((SourceFile) attribute).getSourceFileIndex();
             // Reference _cp.html
             printWriter
-                .print("<UL><LI><A HREF=\"" + className + "_cp.html#cp" + index + "\" TARGET=\"ConstantPool\">Source file index(" + index + ")</A></UL>\n");
+                .print("<UL><LI><A HREF=\"" + classRef + "_cp.html#cp" + index + "\" TARGET=\"ConstantPool\">Source file index(" + index + ")</A></UL>\n");
             break;
         case Const.ATTR_EXCEPTIONS:
             // List thrown exceptions
@@ -133,7 +133,7 @@ final class AttributeHTML implements Closeable {
             printWriter.print("<UL>");
             for (final int indice : indices) {
                 printWriter
-                    .print("<LI><A HREF=\"" + className + "_cp.html#cp" + indice + "\" TARGET=\"ConstantPool\">Exception class index(" + indice + ")</A>\n");
+                    .print("<LI><A HREF=\"" + classRef + "_cp.html#cp" + indice + "\" TARGET=\"ConstantPool\">Exception class index(" + indice + ")</A>\n");
             }
             printWriter.print("</UL>\n");
             break;
@@ -157,9 +157,9 @@ final class AttributeHTML implements Closeable {
                 signature = Utility.signatureToString(signature, false);
                 final int start = var.getStartPC();
                 final int end = start + var.getLength();
-                printWriter.println("<LI>" + Class2HTML.referenceType(signature) + "&nbsp;<B>" + var.getName() + "</B> in slot %" + var.getIndex()
-                    + "<BR>Valid from lines " + "<A HREF=\"" + className + "_code.html#code" + methodNumber + "@" + start + "\" TARGET=Code>" + start
-                    + "</A> to " + "<A HREF=\"" + className + "_code.html#code" + methodNumber + "@" + end + "\" TARGET=Code>" + end + "</A></LI>");
+                printWriter.println("<LI>" + Class2HTML.referenceType(signature) + "&nbsp;<B>" + Class2HTML.toHTML(var.getName()) + "</B> in slot %"
+                    + var.getIndex() + "<BR>Valid from lines " + "<A HREF=\"" + classRef + "_code.html#code" + methodNumber + "@" + start + "\" TARGET=Code>"
+                    + start + "</A> to " + "<A HREF=\"" + classRef + "_code.html#code" + methodNumber + "@" + end + "\" TARGET=Code>" + end + "</A></LI>");
             });
             printWriter.print("</UL>\n");
             break;
@@ -171,7 +171,7 @@ final class AttributeHTML implements Closeable {
                 final String access;
                 index = clazz.getInnerNameIndex();
                 if (index > 0) {
-                    name = constantPool.getConstantUtf8(index).getBytes();
+                    name = Class2HTML.toHTML(constantPool.getConstantUtf8(index).getBytes());
                 } else {
                     name = "&lt;anonymous&gt;";
                 }
@@ -182,7 +182,7 @@ final class AttributeHTML implements Closeable {
             printWriter.print("</UL>\n");
             break;
         default: // Such as Unknown attribute or Deprecated
-            printWriter.print("<P>" + attribute);
+            printWriter.print("<P>" + Class2HTML.toHTML(String.valueOf(attribute)));
         }
         printWriter.println("</TD></TR>");
         printWriter.flush();

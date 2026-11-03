@@ -39,6 +39,7 @@ import org.apache.bcel.classfile.Utility;
 final class ConstantHTML {
 
     private final String className; // name of current class
+    private final String classRef; // name of current class, escaped for use in HREF attributes
     private final String classPackage; // name of package
     private final ConstantPool constantPool; // reference to constant pool
     private final PrintWriter printWriter; // file to write to
@@ -49,6 +50,7 @@ final class ConstantHTML {
     ConstantHTML(final String dir, final String className, final String classPackage, final Method[] methods, final ConstantPool constantPool,
         final Charset charset) throws FileNotFoundException, UnsupportedEncodingException {
         this.className = className;
+        this.classRef = Class2HTML.toHTMLRef(className);
         this.classPackage = classPackage;
         this.constantPool = constantPool;
         this.methods = methods;
@@ -121,6 +123,7 @@ final class ConstantHTML {
             final String methodClass = constantPool.constantToString(classIndex, Const.CONSTANT_Class);
             String shortMethodClass = Utility.compactClassName(methodClass); // I.e., remove java.lang.
             shortMethodClass = Utility.compactClassName(shortMethodClass, classPackage + ".", true); // Remove class package prefix
+            shortMethodClass = Class2HTML.toHTML(shortMethodClass);
             // Get method signature
             final ConstantNameAndType c2 = constantPool.getConstant(nameIndex, Const.CONSTANT_NameAndType, ConstantNameAndType.class);
             final String signature = constantPool.constantToString(c2.getSignatureIndex(), Const.CONSTANT_Utf8);
@@ -139,12 +142,12 @@ final class ConstantHTML {
             buf.append(")");
             final String argTypes = buf.toString();
             if (methodClass.equals(className)) {
-                ref = "<A HREF=\"" + className + "_code.html#method" + getMethodNumber(methodName + signature) + "\" TARGET=Code>" + htmlMethodName + "</A>";
+                ref = "<A HREF=\"" + classRef + "_code.html#method" + getMethodNumber(methodName + signature) + "\" TARGET=Code>" + htmlMethodName + "</A>";
             } else {
-                ref = "<A HREF=\"" + methodClass + ".html" + "\" TARGET=_top>" + shortMethodClass + "</A>." + htmlMethodName;
+                ref = "<A HREF=\"" + Class2HTML.toHTMLRef(methodClass) + ".html" + "\" TARGET=_top>" + shortMethodClass + "</A>." + htmlMethodName;
             }
-            constantRef[index] = retType + "&nbsp;<A HREF=\"" + className + "_cp.html#cp" + classIndex + "\" TARGET=Constants>" + shortMethodClass
-                + "</A>.<A HREF=\"" + className + "_cp.html#cp" + index + "\" TARGET=ConstantPool>" + htmlMethodName + "</A>&nbsp;" + argTypes;
+            constantRef[index] = retType + "&nbsp;<A HREF=\"" + classRef + "_cp.html#cp" + classIndex + "\" TARGET=Constants>" + shortMethodClass
+                + "</A>.<A HREF=\"" + classRef + "_cp.html#cp" + index + "\" TARGET=ConstantPool>" + htmlMethodName + "</A>&nbsp;" + argTypes;
             printWriter.println("<P><TT>" + retType + "&nbsp;" + ref + argTypes + "&nbsp;</TT>\n<UL>" + "<LI><A HREF=\"#cp" + classIndex + "\">Class index("
                 + classIndex + ")</A>\n" + "<LI><A HREF=\"#cp" + nameIndex + "\">NameAndType index(" + nameIndex + ")</A></UL>");
             break;
@@ -157,14 +160,16 @@ final class ConstantHTML {
             final String fieldClass = constantPool.constantToString(classIndex, Const.CONSTANT_Class);
             String shortFieldClass = Utility.compactClassName(fieldClass); // I.e., remove java.lang.
             shortFieldClass = Utility.compactClassName(shortFieldClass, classPackage + ".", true); // Remove class package prefix
+            shortFieldClass = Class2HTML.toHTML(shortFieldClass);
             final String fieldName = constantPool.constantToString(nameIndex, Const.CONSTANT_NameAndType);
+            final String htmlFieldName = Class2HTML.toHTML(fieldName);
             if (fieldClass.equals(className)) {
-                ref = "<A HREF=\"" + fieldClass + "_methods.html#field" + fieldName + "\" TARGET=Methods>" + fieldName + "</A>";
+                ref = "<A HREF=\"" + Class2HTML.toHTMLRef(fieldClass) + "_methods.html#field" + htmlFieldName + "\" TARGET=Methods>" + htmlFieldName + "</A>";
             } else {
-                ref = "<A HREF=\"" + fieldClass + ".html\" TARGET=_top>" + shortFieldClass + "</A>." + fieldName + "\n";
+                ref = "<A HREF=\"" + Class2HTML.toHTMLRef(fieldClass) + ".html\" TARGET=_top>" + shortFieldClass + "</A>." + htmlFieldName + "\n";
             }
-            constantRef[index] = "<A HREF=\"" + className + "_cp.html#cp" + classIndex + "\" TARGET=Constants>" + shortFieldClass + "</A>.<A HREF=\""
-                + className + "_cp.html#cp" + index + "\" TARGET=ConstantPool>" + fieldName + "</A>";
+            constantRef[index] = "<A HREF=\"" + classRef + "_cp.html#cp" + classIndex + "\" TARGET=Constants>" + shortFieldClass + "</A>.<A HREF=\""
+                + classRef + "_cp.html#cp" + index + "\" TARGET=ConstantPool>" + htmlFieldName + "</A>";
             printWriter.println("<P><TT>" + ref + "</TT><BR>\n" + "<UL>" + "<LI><A HREF=\"#cp" + classIndex + "\">Class(" + classIndex + ")</A><BR>\n"
                 + "<LI><A HREF=\"#cp" + nameIndex + "\">NameAndType(" + nameIndex + ")</A></UL>");
             break;
@@ -174,8 +179,9 @@ final class ConstantHTML {
             final String className2 = constantPool.constantToString(index, tag); // / -> .
             String shortClassName = Utility.compactClassName(className2); // I.e., remove java.lang.
             shortClassName = Utility.compactClassName(shortClassName, classPackage + ".", true); // Remove class package prefix
-            ref = "<A HREF=\"" + className2 + ".html\" TARGET=_top>" + shortClassName + "</A>";
-            constantRef[index] = "<A HREF=\"" + className + "_cp.html#cp" + index + "\" TARGET=ConstantPool>" + shortClassName + "</A>";
+            shortClassName = Class2HTML.toHTML(shortClassName);
+            ref = "<A HREF=\"" + Class2HTML.toHTMLRef(className2) + ".html\" TARGET=_top>" + shortClassName + "</A>";
+            constantRef[index] = "<A HREF=\"" + classRef + "_cp.html#cp" + index + "\" TARGET=ConstantPool>" + shortClassName + "</A>";
             printWriter.println("<P><TT>" + ref + "</TT><UL>" + "<LI><A HREF=\"#cp" + nameIndex + "\">Name index(" + nameIndex + ")</A></UL>\n");
             break;
         case Const.CONSTANT_String:
