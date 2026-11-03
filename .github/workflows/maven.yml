@@ -15,7 +15,13 @@
 
 name: Java CI
 
-on: [push, pull_request]
+on:
+  workflow_dispatch:
+    inputs:
+      test-filter:
+        description: 'Optional surefire -Dtest selector; empty runs the full suite'
+        required: false
+        default: ''
 
 permissions:
   contents: read
@@ -24,7 +30,7 @@ jobs:
   build:
 
     runs-on: ${{ matrix.os }}
-    continue-on-error: ${{ matrix.experimental }}
+    timeout-minutes: 45
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
@@ -48,7 +54,7 @@ jobs:
     - uses: actions/checkout@v3.1.0
       with:
         persist-credentials: false
-    - uses: actions/cache@v3.0.11
+    - uses: actions/cache@v4
       with:
         path: ~/.m2/repository
         key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
@@ -57,7 +63,57 @@ jobs:
     - name: Set up JDK ${{ matrix.java }}
       uses: actions/setup-java@v3.6.0
       with:
-        distribution: 'temurin'
+        distribution: ${{ (matrix.os == 'macos-latest' && matrix.java == 8) && 'zulu' || 'temurin' }}
         java-version: ${{ matrix.java }}
+    - name: Widen surefire includes to *Test.java
+      shell: bash
+      run: |
+        printf '%s\n' '**/*TestCase.java' 'org/apache/bcel/**/*Test.java' '**/PerformanceTest.java' > "$RUNNER_TEMP/surefire-includes.txt"
     - name: Build with Maven
-      run: mvn -V --file pom.xml --no-transfer-progress -DtrimStackTrace=false
+      shell: bash
+      run: |
+        if [ -n "${{ inputs.test-filter }}" ]; then
+          mvn -V --file pom.xml --no-transfer-progress -DtrimStackTrace=false -Dtest="${{ inputs.test-filter }}" -Dsurefire.failIfNoSpecifiedTests=false clean verify
+        else
+          mvn -V --file pom.xml --no-transfer-progress -DtrimStackTrace=false "-Dsurefire.includesFile=$RUNNER_TEMP/surefire-includes.txt"
+        fi
+    - name: Report skipped tests with reasons
+      if: always()
+      shell: bash
+      run: |
+        PY=$(command -v python3 || command -v python)
+        "$PY" - <<'PYEOF'
+        import glob, re, os, xml.etree.ElementTree as ET
+        total = {"tests": 0, "failures": 0, "errors": 0, "skipped": 0}
+        for f in sorted(glob.glob("target/surefire-reports/TEST-*.xml")):
+            root = ET.parse(f).getroot()
+            for k in total:
+                total[k] += int(root.get(k, "0"))
+            for tc in root.iter("testcase"):
+                sk = tc.find("skipped")
+                if sk is None:
+                    continue
+                cls, name = tc.get("classname", ""), tc.get("name", "")
+                msg = (sk.get("message") or "").strip()
+                if not msg:
+                    src = "src/test/java/" + cls.replace(".", "/") + ".java"
+                    hits = []
+                    if os.path.exists(src):
+                        for i, line in enumerate(open(src, encoding="utf-8"), 1):
+                            if re.search(r"@Disabled|@EnabledOn|assume(True|False)\(", line):
+                                hits.append("%s:%d: %s" % (src, i, line.strip()))
+                    msg = "no message in report; source skip directives: " + (" | ".join(hits) or "n/a")
+                print("SKIPPED %s#%s (report %s): %s" % (cls, name, os.path.basename(f), msg))
+        print("SUREFIRE TOTAL: tests=%(tests)d failures=%(failures)d errors=%(errors)d skipped=%(skipped)d" % total)
+        PYEOF
+        echo "Upstream skip directives in src/test/java (class-level @Disabled skips may be filed under a neighbouring report):"
+        grep -rnE "@Disabled|@DisabledOnJre|assumeTrue\(" src/test/java
+    - name: Upload release jars
+      if: matrix.os == 'ubuntu-latest' && matrix.java == 8
+      uses: actions/upload-artifact@v4
+      with:
+        name: bcel-jars
+        path: |
+          target/bcel-6.7.0.jar
+          target/bcel-6.7.0-tests.jar
+        if-no-files-found: error
