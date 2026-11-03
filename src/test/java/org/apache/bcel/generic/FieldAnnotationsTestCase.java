@@ -68,14 +68,15 @@ public class FieldAnnotationsTestCase extends AbstractTestCase {
      */
     @Test
     public void testFieldAnnotationEntrysReadWrite() throws ClassNotFoundException, IOException {
-        final JavaClass clazz = getTestJavaClass(PACKAGE_BASE_NAME + ".data.AnnotatedFields");
+        final String name = PACKAGE_BASE_NAME + ".data.AnnotatedFields";
+        final JavaClass clazz = getTestJavaClass(name);
         checkAnnotatedField(clazz, "i", "L" + PACKAGE_BASE_SIG + "/data/SimpleAnnotation;", "id", "1");
         checkAnnotatedField(clazz, "s", "L" + PACKAGE_BASE_SIG + "/data/SimpleAnnotation;", "id", "2");
         // Write it out
         final File tfile = createTestdataFile("AnnotatedFields.class");
         clazz.dump(tfile);
         final SyntheticRepository repos2 = createRepos(".");
-        repos2.loadClass("AnnotatedFields");
+        repos2.loadClass(name);
         checkAnnotatedField(clazz, "i", "L" + PACKAGE_BASE_SIG + "/data/SimpleAnnotation;", "id", "1");
         checkAnnotatedField(clazz, "s", "L" + PACKAGE_BASE_SIG + "/data/SimpleAnnotation;", "id", "2");
         assertTrue(tfile.delete());
